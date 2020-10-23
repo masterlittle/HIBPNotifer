@@ -1,5 +1,4 @@
 
-*.txt
 *.idea
 __pycache__/*
 # Byte-compiled / optimized / DLL files

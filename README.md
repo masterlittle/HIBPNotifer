@@ -23,8 +23,8 @@ And with all this information **pwnedOrNot** can easily find passwords for compr
 
 ```bash
 git clone https://github.com/masterlittle/HIBPNotifier.git
-cd pwnedOrNot
-pip3 install requests
+cd HIBPNotifier
+pip3 install -r requirements.txt
 ```
 
 ## Usage
@@ -49,29 +49,29 @@ optional arguments:
 # Examples
 
 # Check Single Email
-python3 pwnedornot.py -e <email>
+python3 checkemails.py -e <email>
 #OR
-python3 pwnedornot.py --email <email>
+python3 checkemails.py --email <email>
 
 # Check Multiple Emails from File
-python3 pwnedornot.py -f <file name>
+python3 checkemails.py -f <file name>
 #OR
-python3 pwnedornot.py --file <file name>
+python3 checkemails.py --file <file name>
 
 # Filter Result for a Domain Name [Ex : adobe.com]
-python3 pwnedornot.py -e <email> -d <domain name>
+python3 checkemails.py -e <email> -d <domain name>
 #OR
-python3 pwnedornot.py -f <file name> --domain <domain name>
+python3 checkemails.py -f <file name> --domain <domain name>
 
 # Get only Breach Info, Skip Password Dumps
-python3 pwnedornot.py -e <email> -n
+python3 checkemails.py -e <email> -n
 #OR
-python3 pwnedornot.py -f <file name> --nodumps
+python3 checkemails.py -f <file name> --nodumps
 
 # Get List of all Breached Domains
-python3 pwnedornot.py -l
+python3 checkemails.py -l
 #OR
-python3 pwnedornot.py --list
+python3 checkemails.py --list
 
 # Send email of breaches and check breaches only for past 30 days
 python3 checkemails.py -e <email> -s -D 30
@@ -80,9 +80,9 @@ python3 checkemails.py -e <email> -s -D 30
 python3 checkemails.py -f <file> -S <slack channel>
 
 # Check if a Domain is Pwned
-python3 pwnedornot.py -c <domain name>
+python3 checkemails.py -c <domain name>
 #OR
-python3 pwnedornot.py --check <domain name>
+python3 checkemails.py --check <domain name>
 ```
 
 #### ENV variables to set for sending emails. All variables are set in config.py -
