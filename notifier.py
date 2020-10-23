@@ -1,7 +1,9 @@
-import slack_notifications as slack
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import os
+from slack import WebClient
+from slack.errors import SlackApiError
 
 from email_model import Email
 
@@ -10,20 +12,11 @@ class Notifier:
 
     @staticmethod
     def slack_notify(channel, text):
-        block = slack.SimpleTextBlock(
-            'Security Breach',
-            fields=[
-                slack.SimpleTextBlock.Field(
-                    'Text field',
-                ),
-                slack.SimpleTextBlock.Field(
-                    'Text field',
-                    emoji=True,
-                ),
-            ],
-        )
-
-        slack.send_notify(channel, username='Bot', text=text, blocks=[block])
+        client = WebClient(token=os.environ['SLACK_API_TOKEN'])
+        try:
+            client.chat_postMessage(channel='#' + channel, blocks=text)
+        except SlackApiError as e:
+            print(f"Got an error: {e.response['error']}")
 
     @staticmethod
     def email_notify(email: Email):
@@ -38,3 +31,4 @@ class Notifier:
             if email.username and email.password:
                 server.login(email.username, email.password)
             server.sendmail(email.send_from, email.send_to, message.as_string())
+        print("Email sent to {email}".format(email=email.send_to))

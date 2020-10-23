@@ -7,6 +7,8 @@ import json
 import time
 import argparse
 from datetime import datetime, timedelta
+from html import unescape
+import copy
 
 import requests
 from jinja2 import FileSystemLoader, Environment
@@ -78,11 +80,12 @@ def main():
     elif addr is not None and domain is not None:
         output = filtered_check()
         if output:
-            prepare_and_send_email(output, addr)
+            prepare_content_and_notify(output, addr, slack_channel)
+
     elif addr is not None and domain is None:
         output = check()
         if output:
-            prepare_and_send_email(output, addr)
+            prepare_content_and_notify(output, addr, slack_channel)
     elif file is not None and domain is None:
         print(G + '[+]' + C + ' Reading Emails Addresses from ' + W + '{}'.format(file) + '\n')
         with open(file) as dict:
@@ -92,7 +95,7 @@ def main():
                 if addr != '':
                     output = check()
                     if output:
-                        prepare_and_send_email(output, addr)
+                        prepare_content_and_notify(output, addr, slack_channel)
                     time.sleep(1.6)
     elif file != None and domain != None:
         print(G + '[+]' + C + ' Reading Emails Addresses from ' + W + '{}'.format(file) + '\n')
@@ -104,7 +107,7 @@ def main():
                 if addr != '':
                     output = filtered_check()
                     if output:
-                        prepare_and_send_email(output, addr)
+                        prepare_content_and_notify(output, addr, slack_channel)
                     time.sleep(1.6)
     else:
         print('\n' + R + '[-]' + C + ' Error : Atleast 1 Argument is Required, Try : python3 pwnedornot.py -h' + W)
@@ -320,10 +323,7 @@ def domain_check():
 
 def check_email_params(email_config):
     if not email_config['send_from']:
-        raise ValueError('Set ethe environment variable LEAK_ALERTER_EMAIL_SEND_TO')
-    if not email_config['send_to']:
-        raise ValueError(
-            'Set the environment variable LEAK_ALERTER_EMAIL_SEND_FROM. Multiple values should be defined as comma separated.')
+        raise ValueError('Set the environment variable LEAK_ALERTER_EMAIL_SEND_FROM')
     if not email_config['host']:
         raise ValueError('Set the environment variable LEAK_ALERTER_EMAIL_HOST')
     return True
@@ -331,18 +331,54 @@ def check_email_params(email_config):
 
 def check_if_output_falls_within_day_range(output: list):
     return [item for item in output if
-            datetime.strptime(item['BreachDate'], '%Y-%m-%d').date() + timedelta(days=int(days_range)) >= datetime.today().date()]
+            datetime.strptime(item['BreachDate'], '%Y-%m-%d').date() + timedelta(
+                days=int(days_range)) >= datetime.today().date()]
 
 
-def prepare_and_send_email(simple_out, target_email):
+def format_slack_message(output, target_email):
+    dynamic_blocks = {"type": "section"}
+    text = ""
+    # Have to do a copy so it doesn't affect the original object
+    temp_output = copy.deepcopy(output)
+    for item in temp_output:
+        # Removing description attribute for slack as it leads to a lot of noise and ugly text
+        item.pop('Description', None)
+        for k, value in item.items():
+            text = text + "*{key}* - {value}\n".format(key=k, value=value)
+        text = text + "\n"
+    dynamic_blocks["text"] = {"type": "mrkdwn", "text": text}
+    blocks = [
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "\nBreach detected for - *{email}*!".format(email=target_email)
+            }
+        },
+        {
+            "type": "divider"
+        },
+        dynamic_blocks
+    ]
+
+    return blocks
+
+
+def prepare_content_and_notify(simple_out, target_email, slack_channel):
     filtered_output = check_if_output_falls_within_day_range(simple_out)
+    notifier = Notifier()
     if not filtered_output:
-        print("Email not being sent. Breaches are older than {days} days.".format(days=days_range))
+        print("Notifications not being sent. Breaches are older than {days} days.".format(days=days_range))
         return
-    if check_email_params(EMAIL_CONFIG):
-        filtered_breach_info = [{('Total accounts Breached' if req_key == 'PwnCount' else req_key): item[req_key]
-                                 for req_key in REQUIRED_BREACH_FIELDS} for item in filtered_output]
-        email_text = get_email('email_template.html', filtered_breach_info, target_email)
+
+    filtered_breach_info = [{('Total accounts Breached' if req_key == 'PwnCount' else req_key): item[req_key]
+                             for req_key in REQUIRED_BREACH_FIELDS} for item in filtered_output]
+    if slack_channel:
+        formatted_text = format_slack_message(filtered_breach_info, target_email)
+        notifier.slack_notify(slack_channel, formatted_text)
+
+    if check_email_params(EMAIL_CONFIG) and send_email:
+        email_text = unescape(get_email('email_template.html', filtered_breach_info, target_email))
         email = Email(send_from=EMAIL_CONFIG['send_from'],
                       send_to=target_email + ',' + EMAIL_CONFIG['send_to'],
                       host=EMAIL_CONFIG['host'],
@@ -352,8 +388,6 @@ def prepare_and_send_email(simple_out, target_email):
                       content=email_text,
                       subject=EMAIL_CONFIG['subject']
                       )
-
-        notifier = Notifier()
         notifier.email_notify(email)
 
 
@@ -377,6 +411,7 @@ try:
     ap.add_argument('-D', '--days', required=False, help='Number of days past to check breach for and send email',
                     default=3650)
     ap.add_argument('-s', '--send-email', action='store_true', required=False, help='Send the results to email.')
+    ap.add_argument('-S', '--slack-channel', required=False, help='Send the results to slack. Specify a channel name')
     arg = ap.parse_args()
     addr = arg.email
     file = arg.file
@@ -385,6 +420,7 @@ try:
     list_domain = arg.list
     check_domain = arg.check
     send_email = arg.send_email
+    slack_channel = arg.slack_channel
     email_config = EMAIL_CONFIG
     days_range = arg.days
 
