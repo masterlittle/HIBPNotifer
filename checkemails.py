@@ -27,6 +27,8 @@ key = ''
 useragent = ''
 start = ''
 
+ALERT_MESSAGE = 'Your email has been found in a recent breach. Please review the information leaked and it is strongly recommended you change your password, especially if you share the same passwords with your Gmail account.'
+
 REQUIRED_BREACH_FIELDS = ['Title', 'Domain', 'BreachDate', 'PwnCount', 'Description', 'IsVerified']
 
 
@@ -118,7 +120,7 @@ def get_email(email_template, breach_items, target_email):
     file_loader = FileSystemLoader("")
     env = Environment(loader=file_loader, autoescape=True)
     template = env.get_template(email_template)
-    output = template.render(columns=breach_items[0].keys(), items=breach_items, target_email=target_email)
+    output = template.render(columns=breach_items[0].keys(), items=breach_items, target_email=target_email, alert_message=ALERT_MESSAGE)
     return output
 
 
@@ -352,7 +354,7 @@ def format_slack_message(output, target_email):
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": "\nBreach detected for - *{email}*!".format(email=target_email)
+                "text": "\nBreach detected for - *{email}*!\n{alert_message}".format(email=target_email, alert_message=ALERT_MESSAGE)
             }
         },
         {
